@@ -15,6 +15,9 @@ public static class MidiLoader
         var tempoMap = midiFile.GetTempoMap();
         var notes = midiFile.GetNotes();
 
+        var tempo = tempoMap.GetTempoChanges().FirstOrDefault().Value;
+        int microsecondsPerQuaterNote = (int)(tempo?.MicrosecondsPerQuarterNote ?? 500_000);
+
         var tracks = notes
             .GroupBy(n => n.Channel)
             .Select(group => new MidiTrackData
@@ -31,7 +34,6 @@ public static class MidiLoader
                     return new MidiNoteEvent
                     {
                         NoteNumber = n.NoteNumber,
-                        Velocity = n.Velocity,
                         StartTime = (float)startSeconds,
                         Duration = (float)durationSeconds
                     };
@@ -46,7 +48,8 @@ public static class MidiLoader
             FilePath = path,
             Title = Path.GetFileNameWithoutExtension(path),
             Tracks = tracks,
-            Duration = TimeSpan.FromSeconds(totalDurationSeconds)
+            Duration = TimeSpan.FromSeconds(totalDurationSeconds),
+            MicrosecondsPerQuarterNote = microsecondsPerQuaterNote
         };
     }
 }

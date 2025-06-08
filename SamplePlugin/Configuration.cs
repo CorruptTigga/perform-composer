@@ -1,6 +1,6 @@
-using Dalamud.Configuration;
-using Dalamud.Plugin;
 using System;
+
+using Dalamud.Configuration;
 
 namespace Performer;
 

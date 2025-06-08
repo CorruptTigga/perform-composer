@@ -14,13 +14,14 @@ public class PlaybackManager : IDisposable
     private readonly Stopwatch stopwatch = new();
     private readonly Timer updateTimer;
     private readonly List<MidiNoteEvent> queuedNotes = new();
+    private readonly PerformerKeyLayout keyLayout;
 
-    public event Action<MidiNoteEvent>? OnNotePlayed;
+    public event Action<NotePlaybackEvent>? OnNotePlayed;
 
     public bool IsPlaying { get; private set; } = false;
     public float PlaybackSpeed { get; set; } = 1.0f;
 
-    public PlaybackManager(MidiSong song)
+    public PlaybackManager(MidiSong song, PerformerKeyLayout keyLayout)
     {
         this.song = song;
 
@@ -28,6 +29,7 @@ public class PlaybackManager : IDisposable
         updateTimer = new Timer(1000.0 / 60.0);
         updateTimer.Elapsed += Update;
         updateTimer.AutoReset = true;
+        this.keyLayout = keyLayout;
     }
 
     public void Play()
@@ -65,7 +67,16 @@ public class PlaybackManager : IDisposable
         {
             var note = queuedNotes[0];
             queuedNotes.RemoveAt(0);
-            OnNotePlayed?.Invoke(note);
+
+            if (keyLayout.TryGetKeyForNote(note.NoteNumber, out var key))
+            {
+                OnNotePlayed?.Invoke(new NotePlaybackEvent
+                {
+                    Key = key,
+                    Time = currentTime,
+                    Duration = note.Duration
+                });
+            }
         }
 
         if (currentTime >= song.Duration.TotalSeconds)

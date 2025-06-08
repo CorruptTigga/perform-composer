@@ -1,13 +1,15 @@
 {
-  "Author": "Bogairg",
-  "Name": "Performer",
-  "Punchline": "A short one-liner that shows up in /xlplugins.",
-  "Description": "A description that shows up in /xlplugins. List any major slash-command(s).",
-  "ApplicableVersion": "any",
-  "Tags": [
-    "bard",
-    "perform",
-    "performance",
-    "midi"
-  ]
+    "Author": "Bogairg",
+    "Name": "Performer",
+    "Punchline": "MIDI-powered live performance for FFXIV Bard.",
+    "Description": "Load and visualize MIDI files for live Bard performances using the in-game performance system. Features include track-based playback, per-instrument mapping, and a compact piano roll UI. Use `/performer` to open the playback interface. A composition tool is also planned via `/composer`.",
+    "ApplicableVersion": "any",
+    "Tags": [
+        "bard",
+        "perform",
+        "performance",
+        "midi",
+        "music",
+        "visualizer"
+    ]
 }
