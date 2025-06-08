@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
 
-namespace SamplePlugin.Windows;
+namespace Performer.Windows;
 
 public class ConfigWindow : Window, IDisposable
 {
@@ -14,11 +14,11 @@ public class ConfigWindow : Window, IDisposable
     // and the window ID will always be "###XYZ counter window" for ImGui
     public ConfigWindow(Plugin plugin) : base("A Wonderful Configuration Window###With a constant ID")
     {
-        Flags = ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
+        Flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
                 ImGuiWindowFlags.NoScrollWithMouse;
 
         Size = new Vector2(232, 90);
-        SizeCondition = ImGuiCond.Always;
+        SizeCondition = ImGuiCond.FirstUseEver;
 
         Configuration = plugin.Configuration;
     }
@@ -27,33 +27,40 @@ public class ConfigWindow : Window, IDisposable
 
     public override void PreDraw()
     {
-        // Flags must be added or removed before Draw() is being called, or they won't apply
-        if (Configuration.IsConfigWindowMovable)
-        {
-            Flags &= ~ImGuiWindowFlags.NoMove;
-        }
-        else
-        {
-            Flags |= ImGuiWindowFlags.NoMove;
-        }
     }
 
     public override void Draw()
     {
-        // can't ref a property, so use a local copy
-        var configValue = Configuration.SomePropertyToBeSavedAndWithADefault;
-        if (ImGui.Checkbox("Random Config Bool", ref configValue))
+        string[] logLevels = Enum.GetNames(typeof(LogLevel));
+        int selected = (int)Configuration.LoggingLevel;
+
+        if (ImGui.Combo("Log Level", ref selected, logLevels, logLevels.Length))
         {
-            Configuration.SomePropertyToBeSavedAndWithADefault = configValue;
-            // can save immediately on change, if you don't want to provide a "Save and Close" button
+            Configuration.LoggingLevel = (LogLevel)selected;
             Configuration.Save();
         }
 
-        var movable = Configuration.IsConfigWindowMovable;
-        if (ImGui.Checkbox("Movable Config Window", ref movable))
+        if (ImGui.CollapsingHeader("Debug Console"))
         {
-            Configuration.IsConfigWindowMovable = movable;
-            Configuration.Save();
+            if (ImGui.Button("Clear Log"))
+                Logger.Clear();
+
+            ImGui.SameLine();
+            if (ImGui.Button("Copy All"))
+            {
+                var fullLog = string.Join("\n", Logger.LogBuffer);
+                ImGui.SetClipboardText(fullLog);
+            }
+
+            ImGui.BeginChild("##logscroll", new Vector2(0, 0), true, ImGuiWindowFlags.HorizontalScrollbar);
+
+            foreach (var line in Logger.LogBuffer)
+                ImGui.TextUnformatted(line);
+
+            if (ImGui.GetScrollY() >= ImGui.GetScrollMaxY())
+                ImGui.SetScrollHereY(1.0f);
+
+            ImGui.EndChild();
         }
     }
 }

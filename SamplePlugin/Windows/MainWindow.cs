@@ -1,106 +1,222 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Numerics;
-using Dalamud.Interface.Utility;
-using Dalamud.Interface.Utility.Raii;
-using Dalamud.Interface.Windowing;
-using ImGuiNET;
-using Lumina.Excel.Sheets;
 
-namespace SamplePlugin.Windows;
+using Dalamud.Game.ClientState.JobGauge.Enums;
+using Dalamud.Interface.ImGuiFileDialog;
+using Dalamud.Interface.Windowing;
+
+using ImGuiNET;
+
+using Performer.Core;
+using Performer.Midi;
+
+namespace Performer.Windows;
 
 public class MainWindow : Window, IDisposable
 {
-    private string GoatImagePath;
-    private Plugin Plugin;
+    private Plugin plugin;
+    public bool IsPlaying = false;
+    private PlaybackManager? manager;
+    private List<MidiSong> loadedSongs = new();
+    private MidiSong? selectedSong;
+    private FileDialog midiDialog;
+    private float pianoRollZoom = 1.0f;
 
-    // We give this window a hidden ID using ##
-    // So that the user will see "My Amazing Window" as window title,
-    // but for ImGui the ID is "My Amazing Window##With a hidden ID"
-    public MainWindow(Plugin plugin, string goatImagePath)
-        : base("My Amazing Window##With a hidden ID", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
+    public MainWindow(Plugin plugin)
+        : base("Performer##DoItBetter", ImGuiWindowFlags.None)
     {
-        SizeConstraints = new WindowSizeConstraints
-        {
-            MinimumSize = new Vector2(375, 330),
-            MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
-        };
-
-        GoatImagePath = goatImagePath;
-        Plugin = plugin;
+        this.plugin = plugin;
+        midiDialog = new FileDialog(
+            "Performer Dialog##DoItBetter",
+            "Midi Files",
+            ".mid,.midi",
+            this.plugin.Configuration.DefaultPath,
+            "",
+            ".mid",
+            12,
+            true,
+            ImGuiFileDialogFlags.SelectOnly
+        );
     }
 
-    public void Dispose() { }
+    public void Dispose() { manager?.Dispose(); }
 
     public override void Draw()
     {
-        // Do not use .Text() or any other formatted function like TextWrapped(), or SetTooltip().
-        // These expect formatting parameter if any part of the text contains a "%", which we can't
-        // provide through our bindings, leading to a Crash to Desktop.
-        // Replacements can be found in the ImGuiHelpers Class
-        ImGui.TextUnformatted($"The random config bool is {Plugin.Configuration.SomePropertyToBeSavedAndWithADefault}");
+        ImGui.Text("Performer Controls:");
 
-        if (ImGui.Button("Show Settings"))
+        DrawTopbar();
+
+        DrawSongList();
+
+        DrawMidiTracks();
+    }
+
+    private void DrawTopbar()
+    {
+        if (ImGui.Button("Add MIDI"))
+            midiDialog.Show();
+
+        midiDialog.Draw();
+
+        // Load selected songs ONCE
+        if (midiDialog.GetIsOk())
         {
-            Plugin.ToggleConfigUI();
-        }
+            var results = midiDialog.GetResults();
 
-        ImGui.Spacing();
-
-        // Normally a BeginChild() would have to be followed by an unconditional EndChild(),
-        // ImRaii takes care of this after the scope ends.
-        // This works for all ImGui functions that require specific handling, examples are BeginTable() or Indent().
-        using (var child = ImRaii.Child("SomeChildWithAScrollbar", Vector2.Zero, true))
-        {
-            // Check if this child is drawing
-            if (child.Success)
+            foreach (var filePath in results)
             {
-                ImGui.TextUnformatted("Have a goat:");
-                var goatImage = Plugin.TextureProvider.GetFromFile(GoatImagePath).GetWrapOrDefault();
-                if (goatImage != null)
+                if (!File.Exists(filePath))
                 {
-                    using (ImRaii.PushIndent(55f))
+                    Plugin.Log.Warning($"Invalid file path returned: {filePath}");
+                    continue;
+                }
+
+                try
+                {
+                    var loadedSong = MidiLoader.Load(filePath);
+
+                    if (!loadedSongs.Exists(s => s.FilePath == loadedSong.FilePath))
                     {
-                        ImGui.Image(goatImage.ImGuiHandle, new Vector2(goatImage.Width, goatImage.Height));
+                        loadedSongs.Add(loadedSong);
+                        Logger.Info($"Loaded: {loadedSong.Title} | Tracks: {loadedSong.Tracks.Count}");
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    ImGui.TextUnformatted("Image not found.");
-                }
-
-                ImGuiHelpers.ScaledDummy(20.0f);
-
-                // Example for other services that Dalamud provides.
-                // ClientState provides a wrapper filled with information about the local player object and client.
-
-                var localPlayer = Plugin.ClientState.LocalPlayer;
-                if (localPlayer == null)
-                {
-                    ImGui.TextUnformatted("Our local player is currently not loaded.");
-                    return;
-                }
-
-                if (!localPlayer.ClassJob.IsValid)
-                {
-                    ImGui.TextUnformatted("Our current job is currently not valid.");
-                    return;
-                }
-
-                // ExtractText() should be the preferred method to read Lumina SeStrings,
-                // as ToString does not provide the actual text values, instead gives an encoded macro string.
-                ImGui.TextUnformatted($"Our current job is ({localPlayer.ClassJob.RowId}) \"{localPlayer.ClassJob.Value.Abbreviation.ExtractText()}\"");
-
-                // Example for quarrying Lumina directly, getting the name of our current area.
-                var territoryId = Plugin.ClientState.TerritoryType;
-                if (Plugin.DataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryId, out var territoryRow))
-                {
-                    ImGui.TextUnformatted($"We are currently in ({territoryId}) \"{territoryRow.PlaceName.Value.Name.ExtractText()}\"");
-                }
-                else
-                {
-                    ImGui.TextUnformatted("Invalid territory.");
+                    Plugin.Log.Error($"Failed to load MIDI: {ex.Message}");
                 }
             }
+
+            midiDialog = new FileDialog(
+                "Performer Dialog##DoItBetter",
+                "Midi Files",
+                ".mid,.midi",
+                this.plugin.Configuration.DefaultPath,
+                "",
+                ".mid",
+                12,
+                true,
+                ImGuiFileDialogFlags.SelectOnly
+            );
         }
+
+        ImGui.SameLine();
+
+        if (ImGui.Button(IsPlaying ? "Stop Playback" : "Start Playback"))
+        {
+            if (!IsPlaying)
+            {
+                if (selectedSong == null)
+                {
+                    Plugin.Log.Warning("No song loaded.");
+                    return;
+                }
+
+                manager?.Dispose();
+                manager = new PlaybackManager(selectedSong);
+                manager.OnNotePlayed += PlayNote;
+                manager.Play();
+                IsPlaying = true;
+            }
+            else
+            {
+                manager?.Stop();
+                IsPlaying = false;
+            }
+        }
+    }
+
+    private void DrawSongList()
+    {
+        // ✅ Draw the song selection area every frame
+        ImGui.BeginChild("##songList", new Vector2(0, 200), true);
+
+        for (int i = 0; i < loadedSongs.Count; i++)
+        {
+            MidiSong song = loadedSongs[i];
+
+            bool isSelected = selectedSong == song;
+            bool isPlayingThis = IsPlaying && selectedSong == song;
+
+            if (isPlayingThis)
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.2f, 1.0f, 0.2f, 1.0f)); // green
+            else if (isSelected)
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.85f, 0.2f, 1.0f)); // yellowish
+
+            ImGui.Text($"{(isPlayingThis ? "▶ " : "   ")}{song.Title}");
+
+            if (isPlayingThis || isSelected)
+                ImGui.PopStyleColor();
+
+            float fullWidth = ImGui.GetContentRegionAvail().X;
+            float buttonWidth = 60f;
+            float spacing = ImGui.GetStyle().ItemSpacing.X;
+
+            ImGui.SameLine(fullWidth - (buttonWidth * 2 + spacing));
+
+            if (ImGui.Button($"Select##{i}", new Vector2(buttonWidth, 0)))
+            {
+                selectedSong = song;
+            }
+
+            ImGui.SameLine();
+
+            if (ImGui.Button($"Remove##{i}", new Vector2(buttonWidth, 0)))
+            {
+                loadedSongs.Remove(song);
+            }
+        }
+
+        ImGui.EndChild();
+    }
+
+    private void DrawMidiTracks()
+    {
+        ImGui.BeginChild("##midiTracks");
+
+        ImGui.BeginChild("##trackList", new Vector2(200, 0), true);
+
+        if (selectedSong != null)
+        {
+            foreach (MidiTrackData track in selectedSong.Tracks)
+            {
+                DrawTrackListing(track);
+            }
+        }
+
+        ImGui.EndChild();
+
+        ImGui.SameLine();
+
+        ImGui.BeginChild("##pianoRoll", new Vector2(0, 0), true);
+
+        // TODO: Draw piano on the left most side.
+
+        if (selectedSong != null)
+        {
+            
+        }
+
+        ImGui.EndChild();
+
+        ImGui.EndChild();
+    }
+
+    private void DrawTrackListing(MidiTrackData track)
+    {
+        ImGui.BeginChild($"##track-{track.Title}");
+
+        ImGui.Text(track.Title);
+
+        ImGui.EndChild();
+    }
+
+    private void PlayNote(MidiNoteEvent note)
+    {
+        Logger.Info($"[Note] {note.NoteNumber} Velocity {note.Velocity} Start: {note.StartTime}s");
     }
 }
