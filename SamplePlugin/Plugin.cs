@@ -1,3 +1,4 @@
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
@@ -16,6 +17,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static IKeyState KeyState { get; private set; } = null;
 
     private const string CommandPerformer = "/performer";
     private const string CommandComposer = "/composer";
@@ -83,4 +85,5 @@ public sealed class Plugin : IDalamudPlugin
     public void ToggleConfigUI() => ConfigWindow.Toggle();
     public void ToggleMainUI() => PerformerWindow.Toggle();
     public void ToggleComposerUI() => ComposerWindow.Toggle();
+    public void SendKey(VirtualKey key, int value) => KeyState.SetRawValue(key, value);
 }

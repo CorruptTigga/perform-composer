@@ -1,0 +1,65 @@
+D:.
+|   Configuration.cs
+|   Logger.cs
+|   packages.lock.json
+|   Performer.csproj
+|   Performer.json
+|   Plugin.cs
+|   tree.txt
+|   
++---bin
+|   \---x64
+|       \---Debug
+|               goat.png
+|               Melanchall.DryWetMidi.dll
+|               Performer.deps.json
+|               Performer.dll
+|               Performer.json
+|               test.mid
+|               
++---Core
+|       PlaybackManager.cs
+|       
++---Midi
+|       FFXIVInstrument.cs
+|       MidiInstrumentMapper.cs
+|       MidiLoader.cs
+|       MidiNoteEvent.cs
+|       MidiPlaylist.cs
+|       MidiSong.cs
+|       MidiTrackData.cs
+|       
++---obj
+|   |   Performer.csproj.nuget.dgspec.json
+|   |   Performer.csproj.nuget.g.props
+|   |   Performer.csproj.nuget.g.targets
+|   |   project.assets.json
+|   |   project.nuget.cache
+|   |   SamplePlugin.csproj.nuget.dgspec.json
+|   |   SamplePlugin.csproj.nuget.g.props
+|   |   SamplePlugin.csproj.nuget.g.targets
+|   |   
+|   \---x64
+|       \---Debug
+|               .NETCoreApp,Version=v9.0.AssemblyAttributes.cs
+|               Performer.AssemblyInfo.cs
+|               Performer.AssemblyInfoInputs.cache
+|               Performer.assets.cache
+|               Performer.csproj.AssemblyReference.cache
+|               Performer.csproj.CoreCompileInputs.cache
+|               Performer.csproj.FileListAbsolute.txt
+|               Performer.csproj.Up2Date
+|               Performer.dll
+|               Performer.GeneratedMSBuildEditorConfig.editorconfig
+|               Performer.sourcelink.json
+|               SamplePlugin.AssemblyInfo.cs
+|               SamplePlugin.AssemblyInfoInputs.cache
+|               SamplePlugin.assets.cache
+|               SamplePlugin.csproj.AssemblyReference.cache
+|               SamplePlugin.GeneratedMSBuildEditorConfig.editorconfig
+|               
+\---Windows
+        ComposerWindow.cs
+        ConfigWindow.cs
+        MainWindow.cs
+        

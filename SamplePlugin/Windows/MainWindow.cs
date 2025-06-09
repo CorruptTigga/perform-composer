@@ -26,6 +26,7 @@ public class MainWindow : Window, IDisposable
     private const int FirstNote = 48; // C3
     private const int LastNote = 84; // B5 (C6 is 84, exclusive)
     private const float KeyHeight = 18f;
+    private InputHandler? inputHandler;
 
     public MainWindow(Plugin plugin)
         : base("Performer##DoItBetter", ImGuiWindowFlags.None)
@@ -120,7 +121,9 @@ public class MainWindow : Window, IDisposable
 
                 manager?.Dispose();
                 manager = new PlaybackManager(selectedSong);
-                manager.OnNotePlayed += PlayNote;
+                inputHandler = new InputHandler(plugin, selectedSong);
+
+                manager.OnNotePlayed += inputHandler.HandleNote;
                 manager.Play();
                 IsPlaying = true;
             }
